@@ -36,11 +36,12 @@ class Operator < Formula
     (bin/"operator-mcp").chmod 0755
 
     # Create setup script that auto-registers MCP in all Claude Code configs
-    (bin/"operator-setup").write <<~'SETUP'.gsub("%%MCP_CMD%%", "#{bin}/operator-mcp")
+    mcp_cmd = bin/"operator-mcp"
+    setup_content = <<~'SETUP'
       #!/bin/bash
       set -e
 
-      MCP_CMD="%%MCP_CMD%%"
+      MCP_CMD="__MCP_CMD__"
       TOKEN_DIR="$HOME/.operator"
       REGISTERED=0
       SKIPPED=0
@@ -130,6 +131,7 @@ with open('$CONFIG_FILE', 'w') as f:
       echo ""
       echo "Start the daemon: brew services start operator"
     SETUP
+    (bin/"operator-setup").write setup_content.gsub("__MCP_CMD__", mcp_cmd.to_s)
     (bin/"operator-setup").chmod 0755
 
     # Install audio resource files
