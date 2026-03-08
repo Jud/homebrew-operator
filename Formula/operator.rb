@@ -55,15 +55,24 @@ class Operator < Formula
     end
 
     # Auto-configure MCP server in Claude Code
-    claude_bin = which("claude")
+    # Homebrew post_install has a restricted PATH, so search common locations
+    claude_paths = [
+      which("claude"),
+      Pathname.new("/opt/homebrew/bin/claude"),
+      Pathname.new("/usr/local/bin/claude"),
+      Pathname.new("#{Dir.home}/.local/bin/claude"),
+    ].compact
+
+    claude_bin = claude_paths.find { |p| p.exist? && p.executable? }
+
     if claude_bin
-      system claude_bin, "mcp", "add", "operator",
-             "--transport", "stdio",
+      system claude_bin.to_s, "mcp", "add", "--scope", "user",
+             "operator", "--transport", "stdio",
              "--", bin/"operator-mcp"
-      ohai "MCP server registered with Claude Code"
+      ohai "MCP server registered with Claude Code (user scope)"
     else
       opoo "Claude Code CLI not found. Register manually:"
-      puts "  claude mcp add operator -- #{bin}/operator-mcp"
+      puts "  claude mcp add --scope user operator -- #{bin}/operator-mcp"
     end
   end
 
@@ -72,13 +81,16 @@ class Operator < Formula
       Operator has been installed with two components:
 
         1. Daemon:     #{bin}/operator-daemon
-        2. MCP Server: #{bin}/operator-mcp (auto-registered with Claude Code)
+        2. MCP Server: #{bin}/operator-mcp
 
       To start the daemon:
         operator-daemon
 
       To start on login (launchd):
         brew services start operator
+
+      If the MCP server was not auto-registered, run:
+        claude mcp add --scope user operator -- #{bin}/operator-mcp
 
       Requirements:
         - macOS 15+ (Sequoia)
