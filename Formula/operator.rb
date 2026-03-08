@@ -34,14 +34,15 @@ class Operator < Formula
       exec node "#{libexec}/build/index.js" "$@"
     SH
 
-    # Create setup script that auto-registers MCP in all Claude config dirs
-    (bin/"operator-setup").write <<~SH
+    # Create setup script that auto-registers MCP in all Claude Code configs
+    (bin/"operator-setup").write <<~'SETUP'.gsub("%%MCP_CMD%%", "#{bin}/operator-mcp")
       #!/bin/bash
       set -e
 
-      MCP_CMD="#{bin}/operator-mcp"
+      MCP_CMD="%%MCP_CMD%%"
       TOKEN_DIR="$HOME/.operator"
       REGISTERED=0
+      SKIPPED=0
 
       # Generate auth token if needed
       if [ ! -f "$TOKEN_DIR/token" ]; then
@@ -52,17 +53,19 @@ class Operator < Formula
         echo "Generated auth token at $TOKEN_DIR/token"
       fi
 
-      # Find all Claude Code config directories
+      # Find all Claude Code config directories by scanning for .claude.json
+      # files that contain "numStartups" (Claude Code fingerprint).
       CONFIG_DIRS=()
-      for d in "$HOME/.claude" "$HOME/.claude-"*; do
-        if [ -f "$d/.claude.json" ]; then
-          CONFIG_DIRS+=("$d")
+      while IFS= read -r -d '' config_file; do
+        dir="$(dirname "$config_file")"
+        if grep -q '"numStartups"' "$config_file" 2>/dev/null; then
+          CONFIG_DIRS+=("$dir")
         fi
-      done
+      done < <(find "$HOME" -maxdepth 2 -name ".claude.json" -print0 2>/dev/null)
 
       if [ ${#CONFIG_DIRS[@]} -eq 0 ]; then
-        echo "No Claude Code config directories found."
-        echo "Run Claude Code at least once, then re-run this setup."
+        echo "No Claude Code configs found."
+        echo "Run Claude Code at least once, then re-run: operator-setup"
         exit 1
       fi
 
@@ -75,23 +78,24 @@ class Operator < Formula
       # Register MCP server in each config
       for d in "${CONFIG_DIRS[@]}"; do
         CONFIG_FILE="$d/.claude.json"
+        LABEL="$(basename "$d")"
 
-        # Check if already registered
+        # Check if already registered with correct command
         if python3 -c "
 import json, sys
 with open('$CONFIG_FILE') as f:
     d = json.load(f)
-servers = d.get('mcpServers', {})
-if 'operator' in servers:
+s = d.get('mcpServers', {}).get('operator', {})
+if s.get('command') == '$MCP_CMD':
     sys.exit(0)
 sys.exit(1)
 " 2>/dev/null; then
-          echo "  $(basename "$d"): already registered ✓"
-          REGISTERED=$((REGISTERED + 1))
+          echo "  $LABEL: already registered ✓"
+          SKIPPED=$((SKIPPED + 1))
           continue
         fi
 
-        # Add MCP server entry
+        # Add/update MCP server entry
         python3 -c "
 import json
 with open('$CONFIG_FILE') as f:
@@ -105,20 +109,26 @@ servers['operator'] = {
 }
 with open('$CONFIG_FILE', 'w') as f:
     json.dump(d, f, indent=2)
-" 2>/dev/null
+"
 
         if [ $? -eq 0 ]; then
-          echo "  $(basename "$d"): registered ✓"
+          echo "  $LABEL: registered ✓"
           REGISTERED=$((REGISTERED + 1))
         else
-          echo "  $(basename "$d"): failed ✗"
+          echo "  $LABEL: failed ✗"
         fi
       done
 
       echo ""
-      echo "Registered Operator MCP in $REGISTERED config(s)."
+      if [ $REGISTERED -gt 0 ]; then
+        echo "Registered Operator MCP in $REGISTERED config(s)."
+      fi
+      if [ $SKIPPED -gt 0 ]; then
+        echo "$SKIPPED config(s) already up to date."
+      fi
+      echo ""
       echo "Start the daemon: brew services start operator"
-    SH
+    SETUP
 
     # Install audio resource files
     cd "Operator/Sources/Resources" do
