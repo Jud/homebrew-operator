@@ -53,51 +53,22 @@ class Operator < Formula
       (token_dir/"token").write(token)
       (token_dir/"token").chmod 0600
     end
-
-    # Auto-configure MCP server in Claude Code
-    # Homebrew post_install has a restricted PATH, so search common locations
-    claude_paths = [
-      which("claude"),
-      Pathname.new("/opt/homebrew/bin/claude"),
-      Pathname.new("/usr/local/bin/claude"),
-      Pathname.new("#{Dir.home}/.local/bin/claude"),
-    ].compact
-
-    claude_bin = claude_paths.find { |p| p.exist? && p.executable? }
-
-    if claude_bin
-      system claude_bin.to_s, "mcp", "add", "--scope", "user",
-             "operator", "--transport", "stdio",
-             "--", bin/"operator-mcp"
-      ohai "MCP server registered with Claude Code (user scope)"
-    else
-      opoo "Claude Code CLI not found. Register manually:"
-      puts "  claude mcp add --scope user operator -- #{bin}/operator-mcp"
-    end
   end
 
   def caveats
     <<~EOS
-      Operator has been installed with two components:
-
-        1. Daemon:     #{bin}/operator-daemon
-        2. MCP Server: #{bin}/operator-mcp
-
-      To start the daemon:
-        operator-daemon
-
-      To start on login (launchd):
-        brew services start operator
-
-      If the MCP server was not auto-registered, run:
+      Register the MCP server with Claude Code:
         claude mcp add --scope user operator -- #{bin}/operator-mcp
+
+      Start the daemon:
+        brew services start operator
 
       Requirements:
         - macOS 15+ (Sequoia)
         - iTerm2 with scripting enabled
         - Microphone permission (granted on first run)
 
-      Config directory: ~/.operator/
+      Config: ~/.operator/
     EOS
   end
 
