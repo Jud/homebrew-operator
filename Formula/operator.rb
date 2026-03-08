@@ -33,6 +33,7 @@ class Operator < Formula
       #!/bin/bash
       exec node "#{libexec}/build/index.js" "$@"
     SH
+    (bin/"operator-mcp").chmod 0755
 
     # Create setup script that auto-registers MCP in all Claude Code configs
     (bin/"operator-setup").write <<~'SETUP'.gsub("%%MCP_CMD%%", "#{bin}/operator-mcp")
@@ -129,6 +130,7 @@ with open('$CONFIG_FILE', 'w') as f:
       echo ""
       echo "Start the daemon: brew services start operator"
     SETUP
+    (bin/"operator-setup").chmod 0755
 
     # Install audio resource files
     cd "Operator/Sources/Resources" do
