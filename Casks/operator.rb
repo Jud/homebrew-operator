@@ -1,6 +1,6 @@
 cask "operator" do
-  version "0.1.2"
-  sha256 "f37343194bdb40967d7d13afa5f339b5801ae4b427920766b58d7ebb8674f075"
+  version "0.1.3"
+  sha256 "725b0dca7395d8d2403e40eac344e48db65d1cda4a6a23c2ae5e859c9e5448cd"
 
   url "https://github.com/Jud/operator-releases/releases/download/v#{version}/Operator-#{version}.zip"
   name "Operator"
